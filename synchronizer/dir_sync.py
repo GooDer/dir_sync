@@ -7,7 +7,7 @@ log = logging.getLogger('synchronizer.dir_sync.Synchronizer')
 
 class Synchronizer:
     def synchronize(self, input_dir: str, output_dir: str):
-        log.debug("Started with synchronization of %s to %s", input_dir, output_dir)
+        log.info("Started with synchronization of %s to %s", input_dir, output_dir)
         fixed_in_dir = self.__fix_directory_postfix(input_dir)
 
         iterator = glob.iglob(fixed_in_dir + "**", recursive=True)
@@ -15,7 +15,7 @@ class Synchronizer:
             relative_path = self.__relative_path(file, fixed_in_dir)
             if not relative_path:
                 continue
-            log.debug(relative_path)
+            log.debug("Processing item: %s", relative_path)
 
     @staticmethod
     def __fix_directory_postfix(input_dir: str):
