@@ -6,7 +6,6 @@ import logging.config
 
 import yaml
 
-from synchronizer.dir_sync import Synchronizer
 from job.job_runner import  JobRunner
 
 if __name__ == '__main__':
@@ -25,7 +24,6 @@ if __name__ == '__main__':
         """)
 
     args = argParser.parse_args()
-    print(f'args={args}')
 
     with open('log_conf.yaml', mode='rt', encoding='utf-8') as file:
         conf = yaml.safe_load(file)
@@ -34,10 +32,8 @@ if __name__ == '__main__':
 
         logging.config.dictConfig(conf)
 
-    if not args.time_interval:
-        sync = Synchronizer()
-        sync.synchronize(args.input_dir, args.output_dir)
-    else:
+        logging.info('Script called with parameters=%s', args)
+
         runner = JobRunner(args.input_dir, args.output_dir, args.time_interval)
         runner.run_job()
         logging.info('Synchronization finished')
