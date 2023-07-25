@@ -1,3 +1,8 @@
+"""
+Environment parameter DEBUG=1 can be used to print during run of the tests structure of source and target folder.
+That can be handy in case of some failing test and could be extended in future to also provide more detailed information
+on the files and directories
+"""
 import glob
 import os
 import re
@@ -5,15 +10,37 @@ import shutil
 from stat import S_IREAD, S_IRGRP, S_IROTH, S_IWUSR
 import unittest
 
-from synchronizer.dir_sync import Synchronizer
+from synchronizer.dir_sync import Synchronizer, SynchronizerException
 
 SYNC_OUTPUT = 'data' + os.sep + 'target'
 SYNC_INPUT = 'data' + os.sep + 'source'
+
+SYNC_LOGGER = 'synchronizer.dir_sync.Synchronizer'
+DEBUG_HEADER = 'before synchronization'
+DIF_LOG_COUNT_MSG = 'Expected different number of log entries'
+
+FILE_NAME1 = 'test_file1.txt'
+FILE_NAME2 = 'test_file2.txt'
+FILE_NAME3 = 'test_file3.txt'
 
 
 class SynchronizerTest(unittest.TestCase):
 
     def setUp(self):
+        self.doCleanups()
+
+        if not os.path.exists(SYNC_OUTPUT):
+            os.mkdir(SYNC_OUTPUT)
+
+        if not os.path.exists(SYNC_INPUT):
+            os.mkdir(SYNC_INPUT)
+
+        self.__create_sub_dir('sub_folder')
+        self.__create_file(FILE_NAME1, 'some test text')
+        self.__create_file(FILE_NAME3, '...')
+        self.__create_file(f'sub_folder/{FILE_NAME2}', 'sub folder test file')
+
+    def doCleanups(self):
         # make files back writable
         for file in glob.glob('data' + os.sep + '**', recursive=True):
             os.chmod(file, S_IWUSR | S_IREAD)
@@ -24,50 +51,36 @@ class SynchronizerTest(unittest.TestCase):
         if os.path.exists(SYNC_INPUT):
             shutil.rmtree(SYNC_INPUT)
 
-        if not os.path.exists(SYNC_OUTPUT):
-            os.mkdir(SYNC_OUTPUT)
-
-        if not os.path.exists(SYNC_INPUT):
-            os.mkdir(SYNC_INPUT)
-
-        self.__create_sub_dir('sub_folder')
-        self.__create_file('test_file1.txt', 'some test text')
-        self.__create_file('test_file3.txt', '...')
-        self.__create_file('sub_folder/test_file2.txt', 'sub folder test file')
-
-    def doCleanups(self):
-        self.tearDown()
-
     def test_basic_synchronization_without_separator(self):
-        self.__print_debug("before synchronization")
+        self.__print_debug(DEBUG_HEADER)
 
         synchronizer = Synchronizer()
-        with self.assertLogs('synchronizer.dir_sync.Synchronizer', level='INFO') as cm:
+        with self.assertLogs(SYNC_LOGGER, level='INFO') as cm:
             synchronizer.synchronize(SYNC_INPUT, SYNC_OUTPUT)
-            self.assertEqual(5, len(cm.records))
+            self.assertEqual(5, len(cm.records), DIF_LOG_COUNT_MSG)
             self.assertEqual(f"Started with synchronization of {SYNC_INPUT} to {SYNC_OUTPUT}",
                              cm.records[0].getMessage())
             self.assert_log_missing_directory(cm.records[1].getMessage(), 'sub_folder')
-            self.assert_log_missing_file(cm.records[2].getMessage(), 'sub_folder', 'test_file2.txt')
-            self.assert_log_missing_file(cm.records[3].getMessage(), 'test_file1.txt')
-            self.assert_log_missing_file(cm.records[4].getMessage(), 'test_file3.txt')
+            self.assert_log_missing_file(cm.records[2].getMessage(), 'sub_folder', FILE_NAME2)
+            self.assert_log_missing_file(cm.records[3].getMessage(), FILE_NAME1)
+            self.assert_log_missing_file(cm.records[4].getMessage(), FILE_NAME3)
 
         self.__compare_source_and_target()
 
     def test_basic_synchronization_with_separator(self):
-        self.__print_debug("before synchronization")
+        self.__print_debug(DEBUG_HEADER)
 
         synchronizer = Synchronizer()
-        with self.assertLogs('synchronizer.dir_sync.Synchronizer', level='INFO') as cm:
+        with self.assertLogs(SYNC_LOGGER, level='INFO') as cm:
             synchronizer.synchronize(SYNC_INPUT + os.sep, SYNC_OUTPUT + os.sep)
 
-            self.assertEqual(5, len(cm.records))
+            self.assertEqual(5, len(cm.records), DIF_LOG_COUNT_MSG)
             self.assertEqual(f"Started with synchronization of {SYNC_INPUT + os.sep} to {SYNC_OUTPUT + os.sep}",
                              cm.records[0].getMessage())
             self.assert_log_missing_directory(cm.records[1].getMessage(), 'sub_folder')
-            self.assert_log_missing_file(cm.records[2].getMessage(), 'sub_folder', 'test_file2.txt')
-            self.assert_log_missing_file(cm.records[3].getMessage(), 'test_file1.txt')
-            self.assert_log_missing_file(cm.records[4].getMessage(), 'test_file3.txt')
+            self.assert_log_missing_file(cm.records[2].getMessage(), 'sub_folder', FILE_NAME2)
+            self.assert_log_missing_file(cm.records[3].getMessage(), FILE_NAME1)
+            self.assert_log_missing_file(cm.records[4].getMessage(), FILE_NAME3)
 
         self.__compare_source_and_target()
 
@@ -76,24 +89,24 @@ class SynchronizerTest(unittest.TestCase):
         synchronizer.synchronize(SYNC_INPUT, SYNC_OUTPUT)
 
         # different file size
-        self.__create_file('test_file1.txt', 'some test text and longer text')
+        self.__create_file(FILE_NAME1, 'some test text and longer text')
         # different file modification time
-        self.__create_file('test_file3.txt', '+++')
+        self.__create_file(FILE_NAME3, '+++')
         # new file
         self.__create_file('test_file_new.txt', 'newly created file')
         self.__create_file('sub_folder/test_sub_file_new.txt', 'newly created sub file')
 
-        self.__print_debug("before synchronization")
+        self.__print_debug(DEBUG_HEADER)
 
-        with self.assertLogs('synchronizer.dir_sync.Synchronizer', level='INFO') as cm:
+        with self.assertLogs(SYNC_LOGGER, level='INFO') as cm:
             synchronizer.synchronize(SYNC_INPUT, SYNC_OUTPUT)
 
-            self.assertEqual(5, len(cm.records), 'Expected different number of log entries')
+            self.assertEqual(5, len(cm.records), DIF_LOG_COUNT_MSG)
             self.assertEqual(f"Started with synchronization of {SYNC_INPUT} to {SYNC_OUTPUT}",
                              cm.records[0].getMessage())
             self.assert_log_missing_file(cm.records[1].getMessage(), 'sub_folder', 'test_sub_file_new.txt')
-            self.assert_log_changed_meta(cm.records[2].getMessage(), 'test_file1.txt')
-            self.assert_log_changed_meta(cm.records[3].getMessage(), 'test_file3.txt')
+            self.assert_log_changed_meta(cm.records[2].getMessage(), FILE_NAME1)
+            self.assert_log_changed_meta(cm.records[3].getMessage(), FILE_NAME3)
             self.assert_log_missing_file(cm.records[4].getMessage(), 'test_file_new.txt')
 
         self.__compare_source_and_target()
@@ -107,18 +120,19 @@ class SynchronizerTest(unittest.TestCase):
 
         os.renames(SYNC_INPUT + os.sep + 'sub_folder', SYNC_INPUT + os.sep + 'something_different')
 
-        self.__print_debug("before synchronization")
+        self.__print_debug(DEBUG_HEADER)
 
-        with self.assertLogs('synchronizer.dir_sync.Synchronizer', level='INFO') as cm:
+        with self.assertLogs(SYNC_LOGGER, level='INFO') as cm:
             synchronizer.synchronize(SYNC_INPUT, SYNC_OUTPUT)
 
-            self.assertEqual(6, len(cm.records), 'Expected different number of log entries')
+            self.assertEqual(6, len(cm.records), DIF_LOG_COUNT_MSG)
             self.assertEqual(f"Started with synchronization of {SYNC_INPUT} to {SYNC_OUTPUT}",
                              cm.records[0].getMessage())
             self.assert_log_missing_directory(cm.records[1].getMessage(), 'new_sub_directory')
-            self.assert_log_missing_file(cm.records[2].getMessage(), 'new_sub_directory', 'new_file_in_sub_directory.txt')
+            self.assert_log_missing_file(cm.records[2].getMessage(), 'new_sub_directory',
+                                         'new_file_in_sub_directory.txt')
             self.assert_log_missing_directory(cm.records[3].getMessage(), 'something_different')
-            self.assert_log_missing_file(cm.records[4].getMessage(), 'something_different', 'test_file2.txt')
+            self.assert_log_missing_file(cm.records[4].getMessage(), 'something_different', FILE_NAME2)
 
         self.__compare_source_and_target()
 
@@ -126,17 +140,27 @@ class SynchronizerTest(unittest.TestCase):
         synchronizer = Synchronizer()
         synchronizer.synchronize(SYNC_INPUT, SYNC_OUTPUT)
 
-        os.chmod(SYNC_INPUT + os.sep + 'test_file1.txt', S_IREAD|S_IRGRP|S_IROTH)
+        os.chmod(SYNC_INPUT + os.sep + FILE_NAME1, S_IREAD|S_IRGRP|S_IROTH)
 
-        with self.assertLogs('synchronizer.dir_sync.Synchronizer', level='INFO') as cm:
+        with self.assertLogs(SYNC_LOGGER, level='INFO') as cm:
             synchronizer.synchronize(SYNC_INPUT, SYNC_OUTPUT)
 
-            self.assertEqual(2, len(cm.records), 'Expected different number of log entries')
+            self.assertEqual(2, len(cm.records), DIF_LOG_COUNT_MSG)
             self.assertEqual(f"Started with synchronization of {SYNC_INPUT} to {SYNC_OUTPUT}",
                              cm.records[0].getMessage())
-            self.assert_log_changed_mode(cm.records[1].getMessage(), 'test_file1.txt')
+            self.assert_log_changed_mode(cm.records[1].getMessage(), FILE_NAME1)
 
         self.__compare_source_and_target()
+
+    def test_non_existing_source(self):
+        synchronizer = Synchronizer()
+        with self.assertRaisesRegex(SynchronizerException, "Wrong input directory was provided"):
+            synchronizer.synchronize('non_existing_folder', SYNC_OUTPUT)
+
+    def test_non_existing_target(self):
+        synchronizer = Synchronizer()
+        with self.assertRaisesRegex(SynchronizerException, "Wrong output directory was provided"):
+            synchronizer.synchronize(SYNC_INPUT, 'non_existing_folder')
 
     def __compare_files(self, input_f: str, output_f: str):
         input_stat = os.stat(input_f)
@@ -151,7 +175,7 @@ class SynchronizerTest(unittest.TestCase):
         self.assertEqual(input_stat.st_uid, output_stat.st_uid, f"File owner doesn't match {file_log}")
         self.assertEqual(input_stat.st_gid, output_stat.st_gid, f"File group doesn't match {file_log}")
 
-        with open(input_f, 'r') as input_file, open(output_f, 'r') as output_file:
+        with open(input_f, 'r', encoding="utf-8") as input_file, open(output_f, 'r', encoding="utf-8") as output_file:
             self.assertListEqual(input_file.readlines(), output_file.readlines(),
                                  f"File content doesn't match {file_log}")
 
@@ -178,13 +202,13 @@ class SynchronizerTest(unittest.TestCase):
 
     def assert_log_changed_mode(self, msg, *parts: str):
         self.assertRegex(msg, f"Updating file mode '{self.__prepare_regexp_path(*parts)}':"
-                              ' original -> \d*, replica -> \d*')
+                              r' original -> \d*, replica -> \d*')
 
     @staticmethod
-    def __create_file(file: str, content: str):
-        f = open(SYNC_INPUT + os.sep + file, "w")
-        f.write(content)
-        f.close()
+    def __create_file(file_name: str, content: str):
+        with open(SYNC_INPUT + os.sep + file_name, "w", encoding="utf-8") as file:
+            file.write(content)
+            file.close()
 
     @staticmethod
     def __create_sub_dir(directory: str):

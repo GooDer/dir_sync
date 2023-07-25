@@ -1,5 +1,9 @@
 """
-Main runnable script with input parameters from command line
+Main runnable script with input parameters from command line.
+Run script with -h parameter to see possible arguments.
+
+When time_interval parameter is not provided synchronization will be done straight away.
+If interval is provided then synchronization is run after given interval and then periodically
 """
 import argparse
 import logging.config

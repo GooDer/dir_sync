@@ -1,3 +1,8 @@
+"""
+Directory synchronization implementation.
+
+Only local disk synchronization is supported right now.
+"""
 import glob
 import logging
 import os
@@ -12,6 +17,13 @@ class SynchronizerException(Exception):
 
 
 class Synchronizer:
+    """
+    Handle directory synchronization from provided input_dir to output_dir.
+    Directories must be from same system.
+
+    File and directory presence between input and output directory is checked together with file size, modification time
+    file mode and owners.
+    """
     def synchronize(self, input_dir: str, output_dir: str):
         log.info("Started with synchronization of %s to %s", input_dir, output_dir)
         input_dir = self.__fix_directory_postfix(input_dir)
@@ -38,7 +50,12 @@ class Synchronizer:
         self.__cleanup_replica(input_dir, output_dir)
 
     @staticmethod
-    def __fix_directory_postfix(input_dir: str):
+    def __fix_directory_postfix(input_dir: str) -> str:
+        """
+        add directory separator to the end of provided directory if it is not already there
+        :param input_dir: path to directory
+        :return: provided directory with ending folder separator
+        """
         if input_dir[-1] != '\\' and input_dir[-1] != '/':
             return input_dir + os.sep
         return input_dir

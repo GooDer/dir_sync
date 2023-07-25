@@ -1,3 +1,6 @@
+"""
+Scheduled runner which allow to run directory synchronization straight away or on provided interval.
+"""
 import logging
 import time
 from typing import Optional
@@ -15,7 +18,11 @@ class JobRunnerException(Exception):
 
 
 class JobRunner:
-
+    """
+    Create instance of job runner which will then run synchronization from input_dir to output_dir.
+    When optional time_frame is not provided then synchronization is called straight away.
+    If it is provided then after given time interval and repeat forever until killed
+    """
     def __init__(self, input_dir: str, output_dir: str, time_frame: Optional[str] = None):
         self.input_dir = input_dir
         self.output_dir = output_dir
