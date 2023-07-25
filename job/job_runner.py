@@ -1,5 +1,6 @@
 import logging
 import time
+from typing import Optional
 
 import schedule
 from schedule import Job
@@ -15,11 +16,11 @@ class JobRunnerException(Exception):
 
 class JobRunner:
 
-    def __init__(self, input_dir: str, output_dir: str, time_frame: str = None):
+    def __init__(self, input_dir: str, output_dir: str, time_frame: Optional[str] = None):
         self.input_dir = input_dir
         self.output_dir = output_dir
         self.time_frame = time_frame
-        self.is_running = True
+        self.should_be_running = True
 
     def run_job(self):
         sync = dir_sync.Synchronizer()
@@ -30,12 +31,12 @@ class JobRunner:
             self.__create_timed_scheduler().do(sync.synchronize, self.input_dir, self.output_dir)
             log.info("Synchronization job started with interval %s", self.time_frame)
 
-            while self.is_running:
+            while self.should_be_running:
                 schedule.run_pending()
                 time.sleep(1)
 
     def stop(self):
-        self.is_running = False
+        self.should_be_running = False
 
     def __create_timed_scheduler(self) -> Job:
         unit = self.time_frame[-1]

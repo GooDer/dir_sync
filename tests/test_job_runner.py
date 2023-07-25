@@ -1,3 +1,4 @@
+from typing import Optional
 import unittest
 from unittest.mock import patch, MagicMock
 
@@ -67,7 +68,7 @@ class MyTestCase(unittest.TestCase):
                                    sync, 'ah')
 
     @staticmethod
-    def __prepare_job_runner(sync: MagicMock, unit: str):
+    def __prepare_job_runner(sync: MagicMock, unit: Optional[str]) -> MagicMock:
         sync_instance = MagicMock(name="syncInstance")
         sync.return_value = sync_instance
         job = JobRunner(INPUT_DIR, OUTPUT_DIR, unit)
