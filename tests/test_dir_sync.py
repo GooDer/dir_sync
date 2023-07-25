@@ -208,7 +208,6 @@ class SynchronizerTest(unittest.TestCase):
     def __create_file(file_name: str, content: str):
         with open(SYNC_INPUT + os.sep + file_name, "w", encoding="utf-8") as file:
             file.write(content)
-            file.close()
 
     @staticmethod
     def __create_sub_dir(directory: str):
